@@ -5,7 +5,7 @@ fn print_separator() {
     println!("---------------------------------------");
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq)]
 enum State {
     Execution,
     Watiting,
@@ -18,7 +18,7 @@ impl Default for State {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 struct Task {
     name: String,
     arrival_time: u32,
@@ -47,24 +47,6 @@ fn fetch_new_tasks(task_list: &mut Vec<Task>, time: u32) -> Option<Vec<Task>> {
     Some(new_tasks)
 }
 
-#[test]
-fn fetch_new_tasks_test() {
-    let mut task_list = task_queue_test_case();
-    task_list.sort_by(|a, b| b.arrival_time.cmp(&a.arrival_time));
-    let new_tasks = fetch_new_tasks(&mut task_list, 0);
-    assert_eq!(new_tasks, Some(vec![Task {
-        name: String::from("A"),
-        arrival_time: 0,
-        processing_time: 4,
-        state: State::Executable,
-        ..Default::default()
-    }]));
-
-    fetch_new_tasks(&mut task_list, 5);
-    assert!(task_list.is_empty());
-    
-}
-
 fn arrival_order(task_list: &mut Vec<Task>) -> Vec<Task> {
     task_list.sort_by(|a, b| b.arrival_time.cmp(&a.arrival_time));
     let mut time = 0;
@@ -82,12 +64,86 @@ fn arrival_order(task_list: &mut Vec<Task>) -> Vec<Task> {
         }
         time += 1;
         dispatch(&mut task_queue, &mut finished_tasks, time);
+
+        print_task_queue(&task_queue);
         print_separator();
     }
     finished_tasks
 }
 
-fn dispatch(task_queue: &mut VecDeque<Task>, finished_tasks: &mut Vec<Task>, time: u32) {
+fn processing_time_order(tasks: &mut Vec<Task>) -> Vec<Task> {
+    tasks.sort_by(|a, b| b.arrival_time.cmp(&a.arrival_time));
+    let mut time = 0;
+    let mut task_queue = VecDeque::new();
+    let mut finished_tasks = Vec::new();
+
+    let update_queue = |task_queue: &mut VecDeque<Task> | {
+        for i in (1..task_queue.len()).into_iter().rev() {
+            if task_queue[i].processing_time < task_queue[i-1].processing_time {
+                task_queue.swap(i, i - 1);
+            }        
+        }
+    };
+
+    let num_of_tasks = tasks.len();
+    while num_of_tasks > finished_tasks.len() {
+        println!("Time {}", time);
+        if let Some(tasks) = fetch_new_tasks(tasks, time) {
+            for task in tasks {
+                println!("    Task {} arrived.", task.name);
+                task_queue.push_back(task);
+                update_queue(&mut task_queue);
+            }
+        }
+        time += 1;
+        dispatch(&mut task_queue, &mut finished_tasks, time);
+
+        print_task_queue(&task_queue);
+        print_separator();
+    }
+    finished_tasks
+}
+
+fn round_robin(tasks: &mut Vec<Task>, time_quantum: u32) -> Vec<Task> {
+    tasks.sort_by(|a, b| b.arrival_time.cmp(&a.arrival_time));
+    let mut time = 0;
+    let mut task_queue = VecDeque::new();
+    let mut finished_tasks = Vec::new();
+
+    let num_of_tasks = tasks.len();
+    while num_of_tasks > finished_tasks.len() {
+        println!("Time {}", time);
+        if let Some(tasks) = fetch_new_tasks(tasks, time) {
+            for task in tasks {
+                println!("    Task {} arrived.", task.name);
+                task_queue.push_back(task);
+            }
+        }
+        time += 1;
+        let finished = dispatch(&mut task_queue, &mut finished_tasks, time);
+        if time % time_quantum == 0 && !finished {
+            if let Some(task) = task_queue.pop_front() {
+                println!("Timeout Task {}", task.name);
+                task_queue.push_back(task);
+            }
+        }
+
+        print_task_queue(&task_queue);
+        print_separator();
+    }
+    finished_tasks
+}
+
+fn print_task_queue(task_queue: &VecDeque<Task>) {
+    use std::io::{stdout, Write};
+    print!("Queue: ");
+    for task in task_queue.iter() {
+        print!("< {} ", task.name);
+    }
+    print!("\n"); stdout().flush().unwrap();
+}
+
+fn dispatch(task_queue: &mut VecDeque<Task>, finished_tasks: &mut Vec<Task>, time: u32) -> bool {
     if let Some(mut task) = task_queue.pop_front() {
         println!("    Task {} was dispatched and executed.", task.name);
         task.processing_time -= 1;
@@ -95,10 +151,13 @@ fn dispatch(task_queue: &mut VecDeque<Task>, finished_tasks: &mut Vec<Task>, tim
             println!("    Task {} was finished.", task.name);
             task.finish_time = time;
             finished_tasks.push(task);
+            return true;
         } else {
             task_queue.push_front(task);
+            return false;
         }
     }
+    false
 }
 
 fn print_tasks_info(task_list: &Vec<Task>) {
@@ -126,7 +185,7 @@ fn print_result(finished_tasks: &Vec<Task>) {
     print_separator();
 }
 
-fn task_queue_test_case() -> Vec<Task> {
+fn test_case() -> Vec<Task> {
     let mut task_queue = Vec::new();
     task_queue.push(Task {
         name: String::from("A"),
@@ -186,10 +245,12 @@ fn task_queue_init() -> VecDeque<Task> {
 }
 
 fn main() {
-    let mut tasks = task_queue_test_case();
+    let mut tasks = test_case();
     print_tasks_info(&tasks);
     println!("\n-- Start ----------------------------------");
-    let finished_tasks = arrival_order(&mut tasks);
+    //let finished_tasks = arrival_order(&mut tasks);
+    //let finished_tasks = processing_time_order(&mut tasks);
+    let finished_tasks = round_robin(&mut tasks, 2);
     print_result(&finished_tasks);
 }
 
