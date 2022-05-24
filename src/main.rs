@@ -5,7 +5,7 @@ fn print_separator() {
     println!("----------------------------------");
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 enum State {
     Execution,
     Watiting,
@@ -14,11 +14,11 @@ enum State {
 
 impl Default for State {
     fn default() -> State {
-        State::Executable
+        State::Watiting
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct Task {
     name: String,
     arrival_time: u32,
@@ -28,30 +28,59 @@ struct Task {
 }
 
 struct Scheduler {
-    num_of_tasks: usize,
-    task_queue: VecDeque<Task>,
-    finished_tasks: Vec<Task>,
+    time: u32,
+    tasks_list: Vec<Task>,
+    queue: VecDeque<Task>,
+    finished_tasks: Vec<Task>
 }
 
 impl Scheduler {
-    fn new(task_queue: VecDeque<Task>) -> Scheduler {
+    fn new(tasks_list: Vec<Task>) -> Scheduler {
         Scheduler {
-            num_of_tasks: task_queue.len(),
-            task_queue,
+            time: 0,
+            tasks_list,
+            queue: VecDeque::new(),
             finished_tasks: Vec::new(),
         }
     }
 
-    fn arrival_order(&mut self) {
-        let Scheduler {task_queue, finished_tasks, ..} = self;
-        let mut time = 0;
-        for mut task in task_queue.drain(..) {
-            task.state = State::Execution;
-            time += task.processing_time;
-            task.finish_time = time;
-            finished_tasks.push(task);
+    fn fetch_task(&mut self) -> Vec<Task> {
+        let Scheduler {tasks_list, time, ..} = self;
+
+        let mut new_tasks = Vec::new();
+        for task in tasks_list.iter_mut() {
+            if task.arrival_time <= *time && task.state == State::Watiting {
+                new_tasks.push(task.clone());
+                task.state = State::Executable;
+            }
         }
-        self.print_result();
+        new_tasks
+    }
+
+    fn check_finish(&self) -> bool {
+        self.tasks_list.len() == self.finished_tasks.len()
+    }
+
+    fn arrival_order(&mut self) {
+        while self.check_finish() {
+            let mut new_tasks = self.fetch_task();
+            if new_tasks.is_empty() {
+                self.time += 1;
+                continue;
+            }
+
+            new_tasks.sort_by(|a, b| a.arrival_time.cmp(&b.arrival_time));
+            for task in new_tasks {
+                println!("Fetch Task {}", task.name);
+                self.queue.push_back(task);
+            }
+
+            let mut task = self.queue.pop_front().unwrap();
+            println!("Dispatch Task {}", task.name);
+            self.time += task.processing_time;
+            task.finish_time = self.time;
+            self.finished_tasks.push(task);
+        }
     }
 
     fn print_result(&self) {
@@ -65,31 +94,31 @@ impl Scheduler {
             sum += turnaround_time;
         }
         print_separator();
-        println!("Average of Turnaround Time: {}", sum as f32 / self.num_of_tasks as f32);
+        println!("Average of Turnaround Time: {}", sum as f32 / self.tasks_list.len() as f32);
     }
 }
 
-fn task_queue_test_case() -> VecDeque<Task> {
-    let mut task_queue = VecDeque::new();
-    task_queue.push_back(Task {
+fn task_queue_test_case() -> Vec<Task> {
+    let mut task_queue = Vec::new();
+    task_queue.push(Task {
         name: String::from("A"),
         arrival_time: 0,
         processing_time: 4,
         ..Default::default()
     });
-    task_queue.push_back(Task {
+    task_queue.push(Task {
         name: String::from("B"),
         arrival_time: 1,
         processing_time: 8,
         ..Default::default()
     });
-    task_queue.push_back(Task {
+    task_queue.push(Task {
         name: String::from("D"),
         arrival_time: 3,
         processing_time: 2,
         ..Default::default()
     });
-    task_queue.push_back(Task {
+    task_queue.push(Task {
         name: String::from("C"),
         arrival_time: 5,
         processing_time: 6,
@@ -125,15 +154,14 @@ fn task_queue_init() -> VecDeque<Task> {
         };
         task_queue.push_back(task);
     }
-    task_queue.make_contiguous()
-              .sort_by(|a, b| a.arrival_time.cmp(&b.arrival_time));
     task_queue
 }
 
 fn main() {
-    let task_queue = task_queue_test_case();
-    let mut scheduler = Scheduler::new(task_queue);
+    let tasks = task_queue_test_case();
+    let mut scheduler = Scheduler::new(tasks);
     scheduler.arrival_order();
+    scheduler.print_result();
 }
 
 fn get_integer(input: &mut String) -> u32 {
