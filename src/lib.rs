@@ -1,6 +1,4 @@
 use std::collections::VecDeque;
-use std::ops::{Index, IndexMut};
-use std::fmt;
 
 fn print_separator() {
     println!("---------------------------------------");
@@ -36,71 +34,56 @@ pub enum Algorithm {
     RoundRobin(u32, bool)
 }
 
-pub struct QueueList(Vec<(VecDeque<Task>, Algorithm)>);
+type QueueList = Vec<(VecDeque<Task>, Algorithm)>;
+//type QueueID = usize;
 
-impl fmt::Display for QueueList {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Task Queue: ")?;
-        for queue in self.0.iter() {
-            for task in queue.0.iter() {
-                write!(f, "< {}", task.name)?;
-            }
-            write!(f, "\n")?;
+fn print_queue_list(query_list: &QueueList) {
+    use std::io::{stdout, Write};
+    for (i, queue) in query_list.iter().enumerate() {
+        print!("Task Queue {}: ", i);
+        for task in queue.0.iter() {
+            print!("< {}", task.name);
         }
-        Ok(())
+        print!("\n");
+    }
+    stdout().flush().unwrap();
+}
+
+pub fn create_queue_list(algorithm_list: Vec<Algorithm>) -> QueueList {
+    let mut queue_list = Vec::with_capacity(algorithm_list.len());
+    for algorithm in algorithm_list {
+        queue_list.push((VecDeque::new(), algorithm));
+    }
+    queue_list
+}
+
+fn add_task(query_list: &mut QueueList, task: Task) {
+    let (queue, algorithm) = &mut query_list[task.priority as usize];
+    queue.push_back(task);
+    match algorithm {
+        Algorithm::ArrivalOrder => (),
+        _ => todo!("Not Implement"),
     }
 }
 
-impl Index<usize> for QueueList {
-    type Output = (VecDeque<Task>, Algorithm);
-    fn index(&self, idx: usize) -> &Self::Output {
-        &self.0[idx]
-    }
-}
-
-impl IndexMut<usize> for QueueList {
-    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
-        &mut self.0[idx]
-    }
-}
-
-impl QueueList {
-    pub fn new(algorithm_list: Vec<Algorithm>) -> QueueList {
-
-        let mut queue_list = Vec::new();
-        for algo in algorithm_list {
-            queue_list.push((VecDeque::new(), algo));
-        }
-        QueueList(queue_list)
-    }
-
-    pub fn add_task(&mut self, task: Task) {
-        let (queue, algorithm) = &mut self.0[task.priority as usize];
-        queue.push_back(task);
+pub fn dispatch_task(query_list: &mut QueueList, time: u32, finished_task_list: &mut Vec<Task>) {
+    for (queue, algorithm) in query_list.iter_mut() {
         match algorithm {
-            Algorithm::ArrivalOrder => (),
-            _ => todo!("Not Implement"),
-        }
-    }
-
-    pub fn dispatch_task(&mut self, time: u32, finished_task_list: &mut Vec<Task>) {
-        for (queue, algorithm) in self.0.iter_mut() {
-            match algorithm {
-                Algorithm::ArrivalOrder => {
-                    match dispatch(queue, time) {
-                        Some((task, true)) => finished_task_list.push(task),
-                        Some((task, false)) => queue.push_front(task),
-                        None => (),
-                    }
-                },
-                _ => todo!("Not Implement")
-           }
+            Algorithm::ArrivalOrder => {
+                match dispatch(queue, time) {
+                    Some((task, true)) => finished_task_list.push(task),
+                    Some((task, false)) => queue.push_front(task),
+                    None => (),
+                }
+            },
+            _ => todo!("Not Implement")
         }
     }
 }
+
 //validation
 fn validation(task_list: &Vec<Task>, query_list: &QueueList) {
-    let max_priority = query_list.0.len() as u32;
+    let max_priority = query_list.len() as u32;
     for task in task_list.iter() {
         if task.priority >= max_priority {
             panic!("Validation failed")
@@ -113,7 +96,7 @@ pub fn run_simulator(mut query_list: QueueList, mut task_list: Vec<Task>) -> Vec
 
     task_list.sort_by(|a, b| a.arrival_time.cmp(&b.arrival_time));
 
-    let finished_task_list = Vec::new();
+    let mut finished_task_list = Vec::new();
     let mut time = 0;
     let task_list_len = task_list.len();
 
@@ -122,13 +105,14 @@ pub fn run_simulator(mut query_list: QueueList, mut task_list: Vec<Task>) -> Vec
         if let Some(tasks) = fetch_new_tasks(&mut task_list, time) {
             for task in tasks {
                 println!("    Task {} arrived on Queue {}.", task.name, task.priority);
-                query_list.add_task(task);
+                add_task(&mut query_list, task);
             }
         }
 
-        time += 1;
-        println!("{}", query_list);
+        dispatch_task(&mut query_list, time, &mut finished_task_list);
+        print_queue_list(&query_list);
         print_separator();
+        time += 1;
     }
 
     finished_task_list
