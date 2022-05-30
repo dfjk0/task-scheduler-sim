@@ -12,22 +12,22 @@ fn processed_time_order_test() {
     run_test(algorithm_list, test_case, processing_time_order);
 }
 
-#[test] // Todo
+#[test] // Ok
 fn round_robin_test() {
     let algorithm_list = vec![Algorithm::RoundRobin(2, false)];
     run_test(algorithm_list, test_case, round_robin);
-}
-
-fn run_test(algorithm_list: Vec<Algorithm>, tasks: fn()->Vec<Task>, expects: fn()->Vec<TaskResult>) {
-    let queue_list = create_queue_list(algorithm_list);
-    let results = run_simulator(queue_list, tasks());
-    assert_eq!(results, expects());
 }
 
 const TASK_A: Task = Task::new("A",  0, 4, 0);
 const TASK_B: Task = Task::new("B",  1, 8, 0);
 const TASK_C: Task = Task::new("C",  5, 6, 0);
 const TASK_D: Task = Task::new("D",  3, 2, 0);
+
+fn run_test(algorithm_list: Vec<Algorithm>, tasks: fn()->Vec<Task>, expects: fn()->Vec<TaskResult>) {
+    let queue_list = create_queue_list(algorithm_list);
+    let results = run_simulator(queue_list, tasks());
+    assert_eq!(results, expects());
+}
 
 fn test_case() -> Vec<Task> {
     let mut tasks = Vec::new();

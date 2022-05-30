@@ -2,17 +2,17 @@ use scheduler::*;
 
 const NAME: [&'static str; 10] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
+fn random(min: u32, max: u32) -> u32 {
+    assert!(max > min, "random: invalid operation (max <= min)");
+    min + (rand::random::<u32>() % (max - min))
+}
+
 fn gen_tasks(num_of_queue: u32) -> Vec<Task> {
     let mut tasks = Vec::new();
     for i in 0..random(3, 10) as usize {
         tasks.push(Task::new(NAME[i], random(0, 10), random(1, 10), random(0, num_of_queue + 1)));
     }
     tasks
-}
-
-fn random(min: u32, max: u32) -> u32 {
-    assert!(max > min, "random: invalid operation (max <= min)");
-    min + (rand::random::<u32>() % (max - min))
 }
 
 fn main() {

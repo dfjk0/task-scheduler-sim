@@ -20,22 +20,22 @@ impl Default for State {
 #[derive(Debug, Default, PartialEq)]
 pub struct Task {
     name: &'static str,
-    arrival_time: u32,
+    arrival: u32,
     cost: u32,
-    processed_time: u32,
-    finish_time: u32,
+    processed: u32,
     priority: u32,
+    round: u32,
     state: State,
 }
 
 impl Task {
-    pub const fn new(name: &'static str, arrival_time: u32, cost: u32, priority: u32) -> Task {
+    pub const fn new(name: &'static str, arrival: u32, cost: u32, priority: u32) -> Task {
         Task {
             name,
-            arrival_time,
+            arrival,
             cost,
-            processed_time: 0,
-            finish_time: 0,
+            processed: 0,
+            round: 0,
             priority,
             state: State::Watiting,
         }
@@ -61,19 +61,23 @@ pub struct TaskResult {
 }
 
 impl TaskResult {
-    pub const fn new(Task {name, arrival_time, cost, priority, ..}: Task, finish: u32) -> TaskResult {
+    pub const fn new(Task {name, arrival, cost, priority, ..}: Task, finish: u32) -> TaskResult {
         TaskResult {
             name,
-            arrive: arrival_time,
+            arrive: arrival,
             cost,
             priority,
             finish,
-            turnaround: finish - arrival_time,
+            turnaround: finish - arrival,
         }
     }
 }
 
 type QueueList = Vec<(VecDeque<Task>, Algorithm)>;
+//struct QueueList {
+//    value: VecDeque<Task>,
+//    algorithm: Algorithm,
+//}
 
 fn print_queue_list(queue_list: &QueueList) {
     use std::io::{stdout, Write};
@@ -94,7 +98,7 @@ fn fetch_new_tasks(task_list: &mut Vec<Task>, time: u32) -> Option<Vec<Task>> {
     let mut new_tasks = Vec::new();
     loop {
         if let Some(task) = task_list.last() {
-            if task.arrival_time <= time {
+            if task.arrival <= time {
                 let mut task = task_list.pop().unwrap();
                 task.state = State::Executable;
                 new_tasks.push(task);
@@ -109,7 +113,7 @@ fn fetch_new_tasks(task_list: &mut Vec<Task>, time: u32) -> Option<Vec<Task>> {
 // Finished Some(Task, true)
 // NotFinished Some(Task, false)
 // Queue is empty None
-fn dispatch(task_queue: &mut VecDeque<Task>, time: u32) -> Option<(Task, bool)> {
+fn dispatch(task_queue: &mut VecDeque<Task>) -> Option<(Task, bool)> {
     if let Some(mut task) = task_queue.pop_front() {
         if task.state == State::Execution {
             println!("    Task {} was executed.", task.name);
@@ -117,10 +121,9 @@ fn dispatch(task_queue: &mut VecDeque<Task>, time: u32) -> Option<(Task, bool)> 
             println!("    Task {} was dispatched and executed.", task.name);
             task.state = State::Execution;
         }
-        task.processed_time += 1;
-        if task.cost <= task.processed_time {
+        task.processed += 1;
+        if task.cost <= task.processed {
             println!("    Task {} was finished.", task.name);
-            task.finish_time = time + 1;
             return Some((task, true));
         } else {
             return Some((task, false));
@@ -150,37 +153,50 @@ fn add_result(result_list: &mut Vec<TaskResult>, time: u32, task: Task) {
     result_list.push(TaskResult::new(task, finish_time));
 }
 
-pub fn dispatch_task(queue_list: &mut QueueList, time: u32, result_list: &mut Vec<TaskResult>, counter: &mut u32) {
+fn dispatced_queue_id(queue_list: &QueueList) -> Option<usize> {
     for i in 0..queue_list.len() {
-        let (queue, algorithm) = &mut queue_list[i];
+        if queue_list[i].0.len() > 0 {
+            return Some(i);
+        }
+    }
+    None
+}
+
+pub fn dispatch_task(queue_list: &mut QueueList, time: u32, result_list: &mut Vec<TaskResult>) {
+    if let Some(id) = dispatced_queue_id(queue_list) {
+        let queue_list_len = queue_list.len();
+        let (queue, algorithm) = &mut queue_list[id];
         match algorithm {
             Algorithm::ArrivalOrder => {
-                match dispatch(queue, time) {
+                match dispatch(queue) {
                     Some((task, true)) => add_result(result_list, time, task),
                     Some((task, false)) => queue.push_front(task),
                     None => (),
                 }
             },
             Algorithm::ProcessingTimeOrder => {
-                match dispatch(queue, time) {
+                match dispatch(queue) {
                     Some((task, true)) => add_result(result_list, time, task),
                     Some((task, false)) => queue.push_front(task),
                     None => (),
                 }
             },
-            Algorithm::RoundRobin(time_quantum, _) => {
-                match dispatch(queue, time) {
+            Algorithm::RoundRobin(time_quantum, feedback) => {
+                match dispatch(queue) {
                     Some((task, true)) => {
                         add_result(result_list, time, task);
-                        *counter = 0;
                     },
                     Some((mut task, false)) => {
-                        *counter += 1;
-                        if counter >= time_quantum {
+                        task.round += 1;
+                        if task.round >= *time_quantum {
+                            task.round = 0;
                             println!("    Timeout Task {}", task.name);
                             task.state = State::Executable;
-                            queue.push_back(task);
-                            *counter = 0;
+                            if *feedback && id < queue_list_len - 1 {
+                                queue_list[id + 1].0.push_back(task);
+                            } else {
+                                queue.push_back(task);
+                            }
                         } else {
                             queue.push_front(task);
                         }
@@ -188,11 +204,10 @@ pub fn dispatch_task(queue_list: &mut QueueList, time: u32, result_list: &mut Ve
                     None => (),
                 }
             }
-        }
+        } 
     }
 }
 
-//validation
 fn validation(task_list: &Vec<Task>, queue_list: &QueueList) {
     let max_priority = queue_list.len() as u32;
     for task in task_list.iter() {
@@ -214,12 +229,11 @@ pub fn run_simulator(mut queue_list: QueueList, mut task_list: Vec<Task>) -> Vec
     validation(&task_list, &queue_list);
     println!("\n-- Start Simulator ------------------------");
 
-    task_list.sort_by(|a, b| a.arrival_time.cmp(&b.arrival_time));
+    task_list.sort_by(|a, b| a.arrival.cmp(&b.arrival));
     task_list.reverse();
     
     let mut result_list = Vec::new();
     let mut time = 0;
-    let mut counter = 0;
     let task_list_len = task_list.len();
 
     while task_list_len > result_list.len() {
@@ -231,7 +245,7 @@ pub fn run_simulator(mut queue_list: QueueList, mut task_list: Vec<Task>) -> Vec
             }
         }
 
-        dispatch_task(&mut queue_list, time, &mut result_list, &mut counter);
+        dispatch_task(&mut queue_list, time, &mut result_list);
         print_queue_list(&queue_list);
         print_separator();
         time += 1;
@@ -244,7 +258,7 @@ pub fn print_info(tasks: &Vec<Task>) {
     println!("\n-- Task Informations ----------------------");
     println!("name arrive cost priority");
     for task in tasks.iter() {
-        println!("{:>4} {:>6} {:>4} {:>8}",task.name, task.arrival_time, task.cost, task.priority);
+        println!("{:>4} {:>6} {:>4} {:>8}",task.name, task.arrival, task.cost, task.priority);
     }
 }
 
