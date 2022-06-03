@@ -2,7 +2,8 @@
 疑似タスク構造を使用するスケジューリングシミュレータ
 
 ## インストール
-[ここから](https://github.com/dfjk0/task-scheduler-sim/releases/tag/v1.0)ダウンロード，解凍して実行してください．
+実行ファイルを[ここ](https://github.com/dfjk0/task-scheduler-sim/releases/tag/v1.0)に置いています．
+
 ## 使い方
 ### 1: Create queue list
 > - タスクを格納する待ち行列を作成します．
