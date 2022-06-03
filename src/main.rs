@@ -120,11 +120,12 @@ enum UserSelect {
 
 fn main_menu(input: &mut Input) -> UserSelect {
     loop {
-        println!("What do you want to do?");
-        println!("1: Create queue list.");
-        println!("2: Generate tasks.");
-        println!("3: Run simulation.");
-        println!("4: Exit");
+        println!("-------- [Task scheduler simulator] --------");
+        println!(" What do you want to do?");
+        println!(" 1: Create queue list.");
+        println!(" 2: Generate tasks.");
+        println!(" 3: Run simulation.");
+        println!(" 4: Exit");
         match input.get_number() {
             Some(1) => return UserSelect::ConfigQueue,
             Some(2) => return UserSelect::GenTasks,
