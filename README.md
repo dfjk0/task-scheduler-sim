@@ -10,6 +10,13 @@ $ tar -xf app.tar.gz
 $ ./app
 ```
 
+- Windows
+```
+$ Invoke-WebRequest https://github.com/dfjk0/task-scheduler-sim/releases/download/v1.0/x86_64-pc-windows-gnu.zip -OutFile app.zip
+$ Expand-Archive -Path .\app.zip
+$ .\app\app.exe
+```
+
 ## 使い方
 ### 1: Create queue list
 > - タスクを格納する待ち行列を作成します．
