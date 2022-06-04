@@ -10,7 +10,7 @@ $ tar -xf app.tar.gz
 $ ./app
 ```
 
-- Windows
+- Windows (PowerShell)
 ```
 $ Invoke-WebRequest https://github.com/dfjk0/task-scheduler-sim/releases/download/v1.0/x86_64-pc-windows-gnu.zip -OutFile app.zip
 $ Expand-Archive -Path .\app.zip
