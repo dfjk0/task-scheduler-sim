@@ -3,6 +3,12 @@
 
 ## インストール
 実行ファイルを[ここ](https://github.com/dfjk0/task-scheduler-sim/releases/tag/v1.0)に置いています．
+- Linux
+```
+$ curl -L https://github.com/dfjk0/task-scheduler-sim/releases/download/v1.0/x86_64-unknown-linux-gnu.tar.gz -o app.tar.gz
+$ tar -xf app.tar.gz
+$ ./app
+```
 
 ## 使い方
 ### 1: Create queue list
